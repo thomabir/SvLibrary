@@ -1,17 +1,17 @@
-from cgi import test
+"""Contains tests for the System Verilog modules controlling the AD7771 ADC
 
+To run the tests, run `make`. To clean up the output of the simulator, run `make clean`.
+"""
 import cocotb
 import numpy as np
 from cocotb.clock import Clock
-from cocotb.triggers import FallingEdge, RisingEdge, Timer
+from cocotb.triggers import FallingEdge, RisingEdge
 
 np.random.seed(0)
 
 
-async def ReadSingleMessage(dut, msg):
-    """
-    Simulates sending a 64 bit msg from the ADC and reading it with DoutReader, then checks if the result is correct.
-    """
+async def read_single_message(dut, msg):
+    """Simulates the ADC sending a 64 bit message, reading it with AD7771_DoutReader, and checking the result."""
 
     # variables to check whether the transmission was successful
     ch1mask = int("0000000011111111111111111111111100000000000000000000000000000000", 2)
@@ -44,34 +44,50 @@ async def ReadSingleMessage(dut, msg):
     assert expect_ch2 == dut.ch2_o.value, f"Wrong data received: received {dut.ch2_o}, but expected {expect_ch2}"
 
 
-@cocotb.test()
-async def ReadWriteTest(dut):
-    # system clock of 20 ns, and a DCLK of 8 MHz = 125 ns
-    clock = Clock(dut.clk_i, 20, units="ns")  # 20 ns = 50 MHz
-    adc_clock = Clock(dut.dclk, 126, units="ns")  # 125 ns = 8 MHz
+@cocotb.test()  # pylint: disable=E1120
+async def read_test(dut):
+    """Set up the testbench for AD7771_DoutReader.sv and run the tests."""
+
+    # set up the clocks
+    clock = Clock(dut.clk_i, 20, units="ns")  # The system clock is 50 MHz = 20 ns
+    adc_clock = Clock(dut.dclk, 126, units="ns")  # The adc clock is 8 MHz = 125 ns
+
+    # start the clocks
     cocotb.start_soon(clock.start())
     cocotb.start_soon(adc_clock.start())
 
-    await FallingEdge(dut.clk_i)  # Synchronize with the clock
+    # synchronize with the clock
+    await FallingEdge(dut.clk_i)
 
-    # do a reset
+    # reset the module
     dut.reset_i.value = 1
     await FallingEdge(dut.clk_i)
     dut.reset_i.value = 0
     await FallingEdge(dut.clk_i)
 
-    # Set up test messages
+    # set up random test messages
+    # ===========================
+    # A message sent by the ADC consists of 64 bits:
+    # - the first 8 bits are the cyclic redundancy check bits (not tested here),
+    # - the next 24 bits are the data from channel 1,
+    # - the next 8 bits are again cyclic redundancy check bits (not tested here),
+    # - and the last 24 bits are the data from channel 2
+
     n_test = 10
-    crc = "10101010"  # cyclic redundancy check bits, I don't care about them
+    crc = "10101010"  # fake cyclic redundancy check (CRC) bits
+
+    # chx_msgs contains random integers from 0 to the maximum value
     ch1_msgs = np.random.randint(low=0, high=2**24 - 1, size=n_test)
     ch2_msgs = np.random.randint(low=0, high=2**24 - 1, size=n_test)
 
     for ch1_msg, ch2_msg in zip(ch1_msgs, ch2_msgs):
-        # convert the messages to a 64 bit integer
+        # convert the messages to binary strings, 24 bits long
         ch1_msg = bin(ch1_msg)[2:].zfill(24)
         ch2_msg = bin(ch2_msg)[2:].zfill(24)
+
+        # concatenate the message strings and convert to a 64 bit integer
         msg_str = crc + ch1_msg + crc + ch2_msg
         msg = int(msg_str, 2)
 
         # send the message and check if the result is correct
-        await ReadSingleMessage(dut, msg)
+        await read_single_message(dut, msg)

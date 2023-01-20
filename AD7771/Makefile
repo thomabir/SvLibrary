@@ -1,6 +1,6 @@
 VERILOG_SOURCES = $(PWD)/AD7771_DoutReader.sv
 TOPLEVEL=AD7771_DoutReader
-MODULE=TestAD7771_DoutReader
+MODULE=test
 
 
 SIM=verilator
