@@ -28,8 +28,6 @@ async def read_single_message(dut, msg):
     await RisingEdge(dut.dclk)
     dut.drdy.value = 0
 
-    # might need to wait for another rising edge of dclk here, but I'm not sure. Look at verilator output.
-
     # read the message
     for i in range(64):
         # din is the ith bit from the front
