@@ -25,8 +25,10 @@ module AD7771_DoutReader (
   typedef struct packed {
     state_e state;
     logic [5:0] i;  // counts from 63 down to 0 while filling up in_data
-    logic drdy;  // /DRDY
-    logic dclk;  // DCLK
+    logic drdy_1;  // /DRDY, one clk_i cycle ago
+    logic drdy_2;  // /DRDY, two clk_i cycles ago
+    logic dclk_1;  // DCLK, one clk_i cycle ago
+    logic dclk_2;  // DCLK, two clk_i cycles ago
     logic [63:0] in_data;  // message read from the ADC
     logic [63:0] final_data;
   } state_t;
@@ -40,12 +42,16 @@ module AD7771_DoutReader (
       state_q.i <= 63;
       state_q.in_data <= 0;
       state_q.final_data <= 0;
-      state_q.drdy <= 0;
-      state_q.dclk <= 0;
+      state_q.drdy_1 <= 0;
+      state_q.drdy_2 <= 0;
+      state_q.dclk_1 <= 0;
+      state_q.dclk_2 <= 0;
     end else begin
-      state_q <= state_d;
-      state_q.drdy <= drdy;
-      state_q.dclk <= dclk;
+      state_q <= state_d;  // default
+      state_q.drdy_2 <= state_d.drdy_1;
+      state_q.drdy_1 <= drdy;
+      state_q.dclk_2 <= state_d.dclk_1;
+      state_q.dclk_1 <= dclk;
     end
   end  // always_ff
 
@@ -61,7 +67,7 @@ module AD7771_DoutReader (
         state_d.in_data = 0;
 
         // if DRDY goes low, go to next state
-        if (state_q.drdy && !drdy) begin
+        if (state_q.drdy_2 && !state_q.drdy_1) begin
           state_d.state = WAIT_DLCK;
         end
 
@@ -70,7 +76,7 @@ module AD7771_DoutReader (
       // wait for DCLK to go low
       WAIT_DLCK: begin
         // if DCLK goes low, go to next state
-        if (state_q.dclk && !dclk) begin
+        if (state_q.dclk_2 && !state_q.dclk_1) begin
           state_d.state = WRITE_DATA;
         end
       end
