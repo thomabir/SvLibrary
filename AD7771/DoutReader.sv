@@ -1,7 +1,7 @@
 // Read output data from the AD7771 via the DOUT Data interface (ADC is master, FPGA is slave)
 // (This is the only way to read all 8 ADCs simultaneously at 128 kS/s)
 
-module AD7771_DoutReader (
+module DoutReader (
     input clk_i,   // FPGA clock
     input reset_i, // reset
 

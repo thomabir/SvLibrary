@@ -1,5 +1,5 @@
-VERILOG_SOURCES = $(PWD)/AD7771_DoutReader.sv
-TOPLEVEL=AD7771_DoutReader
+VERILOG_SOURCES = $(PWD)/DoutReader.sv
+TOPLEVEL=DoutReader
 MODULE=test
 
 

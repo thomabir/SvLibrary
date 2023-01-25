@@ -11,7 +11,7 @@ np.random.seed(0)
 
 
 async def read_single_message(dut, msg):
-    """Simulates the ADC sending a 64 bit message, reading it with AD7771_DoutReader, and checking the result."""
+    """Simulates the ADC sending a 64 bit message, reading it with DoutReader, and checking the result."""
 
     # variables to check whether the transmission was successful
     ch1mask = int("0000000011111111111111111111111100000000000000000000000000000000", 2)
@@ -44,7 +44,7 @@ async def read_single_message(dut, msg):
 
 @cocotb.test()  # pylint: disable=E1120
 async def read_test(dut):
-    """Set up the testbench for AD7771_DoutReader.sv and run the tests."""
+    """Set up the testbench for DoutReader.sv and run the tests."""
 
     # set up the clocks
     clock = Clock(dut.clk_i, 20, units="ns")  # The system clock is 50 MHz = 20 ns
