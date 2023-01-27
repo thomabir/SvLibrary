@@ -12,7 +12,9 @@ module DoutReader (
 
     // ADC readings, in twos' complement
     output [23:0] ch1_o,  // channel 1
-    output [23:0] ch2_o   // channel 2
+    output [23:0] ch2_o,  // channel 2
+
+    output tick_o  // tick whenever chx_o is updated
 );
 
   typedef enum logic [4:0] {
@@ -31,6 +33,7 @@ module DoutReader (
     logic dclk_2;  // DCLK, two clk_i cycles ago
     logic [63:0] in_data;  // message read from the ADC
     logic [63:0] final_data;
+    logic tick;  // tick whenever final_data is updated
   } state_t;
 
   state_t state_d;
@@ -46,6 +49,7 @@ module DoutReader (
       state_q.drdy_2 <= 0;
       state_q.dclk_1 <= 0;
       state_q.dclk_2 <= 0;
+      state_q.tick <= 0;
     end else begin
       state_q <= state_d;  // default
       state_q.drdy_2 <= state_d.drdy_1;
@@ -65,6 +69,7 @@ module DoutReader (
         // reset values
         state_d.i = 63;
         state_d.in_data = 0;
+        state_d.tick = 0;
 
         // if DRDY goes low, go to next state
         if (state_q.drdy_2 && !state_q.drdy_1) begin
@@ -99,6 +104,7 @@ module DoutReader (
       FINALISE_DATA: begin
         state_d.final_data = state_q.in_data;
         state_d.state = WAIT_DRDY;
+        state_d.tick = 1;
       end
 
       // default
@@ -112,7 +118,8 @@ module DoutReader (
 
 
   // output signals
-  assign ch1_o = state_q.final_data[55:32];
-  assign ch2_o = state_q.final_data[23:0];
+  assign ch1_o  = state_q.final_data[55:32];
+  assign ch2_o  = state_q.final_data[23:0];
+  assign tick_o = state_q.tick;
 
 endmodule
