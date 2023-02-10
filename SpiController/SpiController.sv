@@ -1,3 +1,4 @@
+`timescale 10ns / 1ns
 // CPOL 0: sclk idles low
 // CPHA 0: data is valid on sclk leading edge
 // MSB first
@@ -22,7 +23,7 @@ module SpiController #(
     input  unsigned [FRAME_WIDTH-1:0] data_i   // data to send
 );
 
-  parameter COUNTER_WIDTH = $clog2(FRAME_WIDTH - 1);
+  parameter COUNTER_WIDTH = $clog2(FRAME_WIDTH) + 1;
 
   typedef enum logic [4:0] {
     IDLE,  // wait for start_i = 1
@@ -68,17 +69,16 @@ module SpiController #(
 
       // wait for start_i
       IDLE: begin
-        state_d.bit_counter = COUNTER_WIDTH'(FRAME_WIDTH - 1);
-        state_d.clk_divider = CLOCK_DIVIDE - 1;
+        state_d.bit_counter = COUNTER_WIDTH'(FRAME_WIDTH);
+        state_d.clk_divider = CLOCK_DIVIDE;
         state_d.data_tx = data_i;  // fix the data to transmit
         if (start_i) state_d.state = CS_DOWN;
       end
 
-      // pull /CS low, prepare first bit to write
+      // set /CS low, prepare first bit to write
       CS_DOWN: begin
         if (state_q.clk_divider > 0) begin  // stay in CS_DOWN
           state_d.clk_divider = state_q.clk_divider - 1;
-          state_d.state = CS_DOWN;
         end else begin  // go to next state
           state_d.clk_divider = CLOCK_DIVIDE;
           state_d.state = CLK_LEAD;
@@ -87,34 +87,34 @@ module SpiController #(
 
       // leading edge of the clock
       CLK_LEAD: begin
-        state_d.data_rx[state_q.bit_counter] = spi_miso_i;  // CPHA = 0: read data on leading edge
+        state_d.data_rx[state_q.bit_counter-1] = spi_miso_i;  // CPHA = 0: read data on leading edge
 
-        if (state_q.clk_divider > 0) begin  // stay in CS_DOWN
+        if (state_q.clk_divider > 0) begin  // stay in CLK_LEAD
           state_d.clk_divider = state_q.clk_divider - 1;
-          state_d.state = CLK_LEAD;
         end else begin  // go to next state
           state_d.clk_divider = CLOCK_DIVIDE;
           state_d.state = CLK_TRAIL;
+          state_d.bit_counter = state_q.bit_counter - 1;  // prepare tx data at trailing edge
         end
       end
 
       // trailing edge of the clock
       CLK_TRAIL: begin
-        if (state_q.clk_divider > 0) begin  // stay in CS_DOWN
-          state_d.clk_divider = state_q.clk_divider - 1;
-          state_d.state = CLK_TRAIL;
-        end else if (state_q.bit_counter > 0) begin  // do another read/write
-          // state_d.data_tx[state_q.bit_counter-1] = spi_mosi_o; // CPHA = 0: prepare tx data at trailing edge
-          state_d.bit_counter = state_q.bit_counter - 1;
+
+        if (state_q.bit_counter == 0) begin
+          state_d.state = DONE;
+        end else if (state_q.clk_divider == 0) begin  // do another read/write
           state_d.state = CLK_LEAD;
           state_d.clk_divider = CLOCK_DIVIDE;
-        end else state_d.state = DONE;
+        end else begin
+          state_d.clk_divider = state_q.clk_divider - 1;
+        end
       end
 
       // wait for the start signal to clear and store the result
       DONE: begin
         state_d.data_rx_final = state_q.data_rx;
-        if (!start_i) state_d.state = IDLE;
+        state_d.state = IDLE;
       end
 
       default: begin
@@ -126,9 +126,8 @@ module SpiController #(
   end  // always_comb
 
 
-
   // output signals
-  assign spi_mosi_o = state_q.data_tx[state_q.bit_counter];
+  assign spi_mosi_o = state_q.data_tx[state_q.bit_counter - 1] & (!spi_cs_o) & (state_q.bit_counter > 0);
   assign spi_sclk_o = (state_q.state == CLK_LEAD);
   assign spi_cs_o = ((state_q.state == IDLE) | (state_q.state == DONE));
 

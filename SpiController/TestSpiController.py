@@ -1,7 +1,9 @@
+"""Contains tests for the SpiController module."""
 import cocotb
 import numpy as np
+from cocotb.binary import BinaryValue
 from cocotb.clock import Clock
-from cocotb.triggers import FallingEdge, RisingEdge, Timer
+from cocotb.triggers import FallingEdge, RisingEdge
 
 np.random.seed(0)
 
@@ -22,19 +24,31 @@ async def ReadWriteSingleMessage(dut, data_tx, data_rx):
     value_tx = 0  # transmitted data
     value_rx = 0  # received data
 
+    # wait for /CS to go low
+    await FallingEdge(dut.spi_cs_o)
+
+    dut.start_i.value = 0
+
     # try to read the data and check if the result is correct:
     for i in range(32):
+        # read from Device
+        dut.spi_miso_i.value = (data_rx >> (31 - i)) & 1
+
         await RisingEdge(dut.spi_sclk_o)
 
-        # write bit of
+        # write to Device
         if dut.spi_mosi_o == 1:
             value_tx = value_tx + 2 ** (31 - i)
 
-        dut.spi_miso_i.value = (data_rx >> (31 - i)) & 1
+        await FallingEdge(dut.spi_sclk_o)
+
+    # reset MISO
+    dut.spi_miso_i.value = 0
 
     await RisingEdge(dut.spi_cs_o)
-    dut.start_i.value = 0
-    await Timer(40, "ns")
+
+    await FallingEdge(dut.clk_i)
+    await FallingEdge(dut.clk_i)
 
     value_rx = dut.data_o
 
@@ -44,6 +58,7 @@ async def ReadWriteSingleMessage(dut, data_tx, data_rx):
 
 @cocotb.test()
 async def ReadWriteTest(dut):
+    """Test the SpiController module."""
     clock = Clock(dut.clk_i, 20, units="ns")  # 20 ns = 50 MHz
     cocotb.start_soon(clock.start())
 
@@ -55,19 +70,21 @@ async def ReadWriteTest(dut):
     dut.reset_i.value = 0
     await FallingEdge(dut.clk_i)
 
-    # write a zero, read 570
-    await ReadWriteSingleMessage(dut, 0, 570)
+    # write 101010... and read 010101...
+    # (for easy visual inspection of the data)
+    await ReadWriteSingleMessage(
+        dut,
+        BinaryValue("10101010101010101010101010101010", n_bits=32),
+        BinaryValue("01010101010101010101010101010101", n_bits=32),
+    )
 
-    # write max
-    await ReadWriteSingleMessage(dut, 2**32 - 1, 570)
+    # write a zero, read max
+    await ReadWriteSingleMessage(dut, 0, 2**32 - 1)
 
-    # read a zero
-    await ReadWriteSingleMessage(dut, 570, 0)
+    # write max, read a zero
+    await ReadWriteSingleMessage(dut, 2**32 - 1, 0)
 
-    # read max
-    await ReadWriteSingleMessage(dut, 570, 2**32 - 1)
-
-    # read/write random integers
+    # read/write random messages
     n_test = 10
     values_tx = np.random.randint(low=0, high=2**32 - 1, size=n_test)
     values_rx = np.random.randint(low=0, high=2**32 - 1, size=n_test)
