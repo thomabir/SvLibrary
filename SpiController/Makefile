@@ -1,6 +1,6 @@
 VERILOG_SOURCES = $(PWD)/SpiController.sv
 TOPLEVEL=SpiController
-MODULE=TestSpiController
+MODULE=test
 
 SIM=verilator
 COCOTB_HDL_TIMEPRECISION = 1ns

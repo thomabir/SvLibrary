@@ -8,7 +8,7 @@ from cocotb.triggers import FallingEdge, RisingEdge
 np.random.seed(0)
 
 
-async def ReadWriteSingleMessage(dut, data_tx, data_rx):
+async def read_write_message(dut, data_tx, data_rx):
     """
     Write data_tx to the device and read data_rx from the device, then check both.
     """
@@ -56,8 +56,8 @@ async def ReadWriteSingleMessage(dut, data_tx, data_rx):
     assert value_rx == data_rx, f"Wrong data received: received {value_rx}, but expected {data_rx}"
 
 
-@cocotb.test()
-async def ReadWriteTest(dut):
+@cocotb.test()  # pylint: disable=E1120
+async def run_tests(dut):
     """Test the SpiController module."""
     clock = Clock(dut.clk_i, 20, units="ns")  # 20 ns = 50 MHz
     cocotb.start_soon(clock.start())
@@ -72,17 +72,17 @@ async def ReadWriteTest(dut):
 
     # write 101010... and read 010101...
     # (for easy visual inspection of the data)
-    await ReadWriteSingleMessage(
+    await read_write_message(
         dut,
         BinaryValue("10101010101010101010101010101010", n_bits=32),
         BinaryValue("01010101010101010101010101010101", n_bits=32),
     )
 
     # write a zero, read max
-    await ReadWriteSingleMessage(dut, 0, 2**32 - 1)
+    await read_write_message(dut, 0, 2**32 - 1)
 
     # write max, read a zero
-    await ReadWriteSingleMessage(dut, 2**32 - 1, 0)
+    await read_write_message(dut, 2**32 - 1, 0)
 
     # read/write random messages
     n_test = 10
@@ -90,4 +90,4 @@ async def ReadWriteTest(dut):
     values_rx = np.random.randint(low=0, high=2**32 - 1, size=n_test)
 
     for value_tx, value_rx in zip(values_tx, values_rx):
-        await ReadWriteSingleMessage(dut, int(value_tx), int(value_rx))
+        await read_write_message(dut, int(value_tx), int(value_rx))
