@@ -2,14 +2,16 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 
+# general
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: v4.4.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
 
+# Python
 -   repo: local
     hooks:
     -   id: system
@@ -27,6 +29,17 @@ repos:
             # - --disable=C,R,E0401
             - --disable=C0301
 
+-   repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.12.0
+    hooks:
+    -   id: isort
+
+# Verilog
 -   repo: local
     hooks:
     -   id: system
@@ -35,14 +48,38 @@ repos:
         language: system
         files: \.sv$
         args:
+            - --column_limit=100
+            - --indentation_spaces=4
+            - --wrap_spaces=4
             - --inplace
+            - --assignment_statement_alignment=flush-left
+            - --case_items_alignment=flush-left
+            - --class_member_variable_alignment=flush-left
+            - --distribution_items_alignment=flush-left
+            - --enum_assignment_statement_alignment=flush-left
+            - --formal_parameters_alignment=flush-left
+            - --module_net_variable_alignment=flush-left
+            - --named_parameter_alignment=flush-left
+            - --named_parameter_indentation=indent
+            - --port_declarations_alignment=flush-left
+            - --port_declarations_indentation=indent
+            - --struct_union_members_alignment=flush-left
+            - --wrap_end_else_clauses=1
 
--   repo: https://github.com/psf/black
-    rev: 23.1a1
+-   repo: local
     hooks:
-      - id: black
+    -   id: system
+        name: verible-verilog-lint
+        entry: verible-verilog-lint
+        language: system
+        files: \.sv$
 
--   repo: https://github.com/PyCQA/isort
-    rev: 5.11.4
-    hooks:
-    -   id: isort
+# Markdown
+- repo: https://github.com/executablebooks/mdformat
+  rev: 0.7.17
+  hooks:
+  - id: mdformat
+    # Optionally add plugins
+    additional_dependencies:
+    - mdformat-gfm
+    - mdformat-beautysh
